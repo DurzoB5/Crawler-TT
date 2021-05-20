@@ -27,6 +27,7 @@ exclude = '''
 
 [tool.poetry.dependencies]
 python = "^3.8"
+coloredlogs = "^15.0"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "^2.12.1"
