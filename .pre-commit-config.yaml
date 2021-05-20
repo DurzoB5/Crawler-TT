@@ -1,0 +1,61 @@
+exclude: "docs|node_modules|migrations|.git|.tox|.vscode|.idea"
+default_stages: [commit]
+fail_fast: false
+default_language_version:
+  python: python3.8
+
+repos:
+  # Finds and removes any unused import statements
+  - repo: https://github.com/hadialqattan/pycln
+    rev: 0.0.2
+    hooks:
+      - id: pycln
+        args: ["."]
+
+  # Sorts import statements
+  - repo: https://github.com/pre-commit/mirrors-isort
+    rev: v5.8.0
+    hooks:
+      - id: isort
+
+  # Checks code quality standards
+  - repo: https://github.com/ambv/black
+    rev: 20.8b1
+    hooks:
+      - id: black
+
+  # Checks formating for several types of files
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+      - id: check-ast
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: double-quote-string-fixer
+      - id: check-executables-have-shebangs
+      - id: debug-statements
+      - id: check-merge-conflict
+      - id: check-docstring-first
+      - id: check-json
+      - id: check-toml
+      - id: check-xml
+      - id: pretty-format-json
+        args: ["--autofix"]
+      - id: detect-aws-credentials
+        args: ["--allow-missing-credentials"]
+      - id: detect-private-key
+
+  # Additional checks for code quality standards
+  - repo: https://gitlab.com/pycqa/flake8
+    rev: 3.8.1
+    hooks:
+      - id: flake8
+        args: ["--config=setup.cfg"]
+
+  # Checks for the use of vulnerable packages and unsafe code
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.6.2
+    hooks:
+      - id: bandit
+        args: ["-ii", "-ll"]
