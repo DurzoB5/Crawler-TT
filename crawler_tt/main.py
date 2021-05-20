@@ -5,15 +5,18 @@ from typing import List, Optional
 import coloredlogs
 
 from crawler_tt.crawler import Crawler
+from crawler_tt.util import CrawlerMode
 
 
 def run(
     url: str,
     payloads: List[str],
-    result_file: str = 'crawl_results.json',
+    mode: CrawlerMode,
+    result: str,
     same_domain_only: bool = True,
     include_subdomains: bool = True,
     excluded_urls: Optional[List[str]] = None,
+    testing_dvwa: bool = False,
     log_level: str = 'INFO',
     **kwargs,
 ) -> Crawler:
@@ -25,24 +28,36 @@ def run(
 
     :param url: The url to start the crawl from
     :param payloads: The SQL injection payloads to try
-    :param result_file: A path to either create the results file or of an existing
-        incomplete results file
+    :param mode: The mode the crawler should run in, this effects how results are
+        stored
+    :param result: If running in STANDALONE mode then this should be a path to
+        either create the result file or of a result file from a previous
+        incomplete run, if running in SERVICE mode this should be the ID of the
+        database object to store results to
     :param same_domain_only: Flag whether to only test urls on the same domain as the
         starting url
     :param include_subdomains: Whether to include subdomains of the starting url
     :param excluded_urls: A list of urls to exclude from the crawl if seen
+    :param testing_dvwa: Whether the crawler is testing a DVWA instance which if true
+        allows for extra functionality
     :param log_level: The log level to run the crawler at
     """
     # Create the Crawler with the provided settings
     crawler = Crawler(
         url,
         payloads,
-        result_file,
+        mode,
+        result,
         same_domain_only,
         include_subdomains,
         excluded_urls if excluded_urls else [],
+        testing_dvwa,
         log_level,
     )
+
+    crawler.start()
+
+    print(crawler.progress.results)
 
     return crawler
 
@@ -62,6 +77,7 @@ def cli() -> None:
     parser.add_argument(
         '-r',
         '--result-file',
+        dest='result',
         type=str,
         help='Either the output path to place the result file or a path to a '
         'previously incomplete result file',
@@ -96,6 +112,12 @@ def cli() -> None:
         help='A list of urls that should be excluded from the crawl if they are seen',
     )
     parser.add_argument(
+        '--testing-dvwa',
+        action='store_true',
+        help='Whether the crawler is testing a DVWA instance which allows for '
+        'additional functionality',
+    )
+    parser.add_argument(
         '--log-level',
         type=str,
         choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
@@ -112,7 +134,7 @@ def cli() -> None:
     # Read in the payload file and override the args namespace with the list of payloads
     args.payloads = [line.strip() for line in args.payloads.readlines()]
 
-    run(**args.__dict__)
+    run(mode=CrawlerMode.STANDALONE, **args.__dict__)
 
 
 if __name__ == '__main__':

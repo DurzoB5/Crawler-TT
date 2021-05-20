@@ -28,6 +28,8 @@ exclude = '''
 [tool.poetry.dependencies]
 python = "^3.8"
 coloredlogs = "^15.0"
+requests = "^2.25.1"
+bs4 = "^0.0.1"
 
 [tool.poetry.dev-dependencies]
 pre-commit = "^2.12.1"
