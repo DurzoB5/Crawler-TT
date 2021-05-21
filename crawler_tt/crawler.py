@@ -13,7 +13,7 @@ from crawler_tt.progress import (
     StandaloneProgressHandler,
     State,
 )
-from crawler_tt.util import CrawlerMode
+from crawler_tt.util import CrawlerMode, SQL_ERRORS
 
 LOGGER = logging.getLogger('crawler')
 
@@ -121,7 +121,7 @@ class Crawler:
                 method = form.attrs.get('method', 'get').lower()
 
                 for input_field in form.findAll('input'):
-                    if input_field.attrs.get('type') != 'submit':
+                    if input_field.attrs.get('type') not in ['submit', 'hidden']:
                         data[
                             input_field.attrs.get('name')
                         ] = f'{input_field.attrs.get("value", "")}{payload}'
@@ -131,21 +131,38 @@ class Crawler:
                         )
 
                 if method != 'get':
-                    response = getattr(self.session, method)(form_url, data=data)
+                    response = getattr(self.session, method)(
+                        form_url, data=data, headers={'security': 'low'}
+                    )
                 else:
-                    response = self.session.get(form_url, params=data)
+                    response = self.session.get(
+                        form_url, params=data, headers={'security': 'low'}
+                    )
 
-                if response.status_code != 200:
-                    continue
+                error_found = False
 
-                if self.testing_dvwa:
-                    pass
+                for error in SQL_ERRORS:
+                    if error[0] in response.content.decode('utf-8').lower():
+                        self.progress.store_result(
+                            url,
+                            Result(
+                                State.VULNERABLE,
+                                f'{error[1]} on form {form.attrs.get("id")}',
+                            ),
+                        )
+                        error_found = True
 
-                # Given more time more work would be put into detecting successful SQL
-                # injections. For now record the url as being safe
-                self.progress.store_result(
-                    url, Result(State.SUCCESS, 'No injections found')
-                )
+                if error_found:
+                    # If an error has been found stop trying payloads
+                    break
+                else:
+                    # If no error has been found mark the url as safe
+                    self.progress.store_result(
+                        url, Result(State.SAFE, 'No injections found')
+                    )
+        else:
+            # If no forms are found then mark the url as safe
+            self.progress.store_result(url, Result(State.SAFE, 'No injections found'))
 
     def __init__(
         self,
@@ -196,6 +213,9 @@ class Crawler:
         self.excluded_urls = excluded_urls
         self.testing_dvwa = testing_dvwa
         self.session = requests.Session()
+        if testing_dvwa:
+            # If testing DVWA then set the security cookie to low
+            self.session.cookies.set('security', 'low')
 
         # Create the correct ProgressHandler based on the mode the crawler is running in
         self.progress = (

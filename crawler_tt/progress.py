@@ -3,8 +3,9 @@ from typing import List, Optional
 
 
 class State(Enum):
-    SUCCESS = 0
-    FAILURE = 1
+    SAFE = 'safe'
+    FAILURE = 'failure'
+    VULNERABLE = 'vulnerable'
 
 
 class Result:
