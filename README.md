@@ -5,7 +5,7 @@ Crawler tech test for AppCheck
 
 This project uses Poetry for dependency management and requires Python >= 3.8 to run.
 
-With Python and Poetry installed from the root project directory you can install the project, and it's dependencies 
+With Python and Poetry installed from the root project directory you can install the project, and it's dependencies
 with:
 
 ```
@@ -25,5 +25,5 @@ If running against DVWA, ensure that DVWA's security has been set to low, and th
 Assuming the DVMA docker container is exposed on port 8080 you can run the crawler against it by running:
 
 ```
-$ crawler http://localhost:8080/
+$ crawler http://localhost:8080/ --testing-dvwa
 ```

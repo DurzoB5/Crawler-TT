@@ -13,7 +13,7 @@ from crawler_tt.progress import (
     StandaloneProgressHandler,
     State,
 )
-from crawler_tt.util import CrawlerMode, SQL_ERRORS
+from crawler_tt.util import SQL_ERRORS, CrawlerMode
 
 LOGGER = logging.getLogger('crawler')
 
@@ -78,14 +78,18 @@ class Crawler:
         return f'{scheme}://{host}{path}'
 
     def _get_urls_from_page(self, page: BeautifulSoup) -> List[str]:
-        LOGGER.debug('Looking for new urls...')
+        LOGGER.debug('Looking for new urls')
         found_urls = []
 
         # Find all `a` html tags on the page
         link_tags = page.findAll('a', href=True)
         for link_tag in link_tags:
             if link := link_tag.get('href'):
+                LOGGER.debug(f'Found href {link}')
                 if link == '.':
+                    LOGGER.debug(
+                        f'Skipping {link} as it\'s the same as the current location'
+                    )
                     continue
 
                 link_parts = urlsplit(link)
@@ -95,6 +99,7 @@ class Crawler:
                     'http',
                     'https',
                 ]:
+                    LOGGER.debug(f'Skipping {link} as it has an unsupported scheme')
                     continue
 
                 # If the crawler is only looking for urls with the same domain
@@ -103,9 +108,17 @@ class Crawler:
                 if self.same_domain_only and link_parts.netloc != '':
                     if self.include_subdomains:
                         if self.host not in link_parts.netloc:
+                            LOGGER.debug(
+                                f'Skipping {link} as it is not a subdomain of '
+                                f'{self.host}'
+                            )
                             continue
                     else:
                         if link_parts.netloc != self.host:
+                            LOGGER.debug(
+                                f'Skipping {link} as it is not the same domain as '
+                                f'{self.host}'
+                            )
                             continue
 
                 # Build the new url making sure all query params are removed
@@ -115,13 +128,15 @@ class Crawler:
 
     def _test_forms_vulnerable(self, url: str, page: BeautifulSoup) -> None:
         for form in page.findAll('form'):
+            form_id = form.attrs.get('id', '')
+            LOGGER.debug('Checking form with ID: {form_id}')
             for payload in self.payloads:
                 data = {}
                 form_url = urljoin(url, form.attrs.get('action', ''))
                 method = form.attrs.get('method', 'get').lower()
 
                 for input_field in form.findAll('input'):
-                    if input_field.attrs.get('type') not in ['submit', 'hidden']:
+                    if input_field.attrs.get('type') != 'submit':
                         data[
                             input_field.attrs.get('name')
                         ] = f'{input_field.attrs.get("value", "")}{payload}'
@@ -143,11 +158,14 @@ class Crawler:
 
                 for error in SQL_ERRORS:
                     if error[0] in response.content.decode('utf-8').lower():
+                        LOGGER.warning(
+                            f'SQL injection found at {url} on form {form_id}'
+                        )
                         self.progress.store_result(
                             url,
                             Result(
                                 State.VULNERABLE,
-                                f'{error[1]} on form {form.attrs.get("id")}',
+                                f'{error[1]} on form {form_id}',
                             ),
                         )
                         error_found = True
@@ -157,11 +175,13 @@ class Crawler:
                     break
                 else:
                     # If no error has been found mark the url as safe
+                    LOGGER.debug(f'{url} has no errors, marking as safe')
                     self.progress.store_result(
                         url, Result(State.SAFE, 'No injections found')
                     )
         else:
             # If no forms are found then mark the url as safe
+            LOGGER.debug(f'{url} has no forms, marking as safe')
             self.progress.store_result(url, Result(State.SAFE, 'No injections found'))
 
     def __init__(
@@ -215,9 +235,11 @@ class Crawler:
         self.session = requests.Session()
         if testing_dvwa:
             # If testing DVWA then set the security cookie to low
+            LOGGER.info('Setting security cookie')
             self.session.cookies.set('security', 'low')
 
         # Create the correct ProgressHandler based on the mode the crawler is running in
+        LOGGER.debug(f'Creating progress handler for {mode}')
         self.progress = (
             StandaloneProgressHandler(result)
             if mode == CrawlerMode.STANDALONE
@@ -227,17 +249,13 @@ class Crawler:
     def start(self) -> None:
         """Function to start crawling from the starting url"""
         LOGGER.info('Starting crawler...')
-        if self.testing_dvwa:
-            LOGGER.info('Logging into DVWA...')
-            self._dvwa_login()
-
         urls_to_test = [self.starting_url]
 
         # Loop while there are still urls to be tested
         while urls_to_test:
             # Get a url to test
             url = urls_to_test.pop()
-            LOGGER.info(f'Testing {url}...')
+            LOGGER.info(f'Testing {url}, {len(urls_to_test)} urls remaining')
 
             try:
                 try:

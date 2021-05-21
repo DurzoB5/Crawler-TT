@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 SQL_ERRORS = [
     ('you have an error in your sql syntax;', 'MySQL injection detected'),
     ('warning: mysql', 'MySQL injection detected'),
@@ -10,5 +9,5 @@ SQL_ERRORS = [
 
 
 class CrawlerMode(Enum):
-    STANDALONE = 0
-    SERVICE = 1
+    STANDALONE = 'standalone'
+    SERVICE = 'service'
