@@ -3,11 +3,13 @@ import os
 from typing import List, Optional
 
 import coloredlogs
+from celery import shared_task
 
 from crawler_tt.crawler import Crawler
 from crawler_tt.util import CrawlerMode
 
 
+@shared_task
 def run(
     url: str,
     payloads: List[str],
