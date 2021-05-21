@@ -57,8 +57,6 @@ def run(
 
     crawler.start()
 
-    print(crawler.progress.results)
-
     return crawler
 
 
@@ -78,6 +76,7 @@ def cli() -> None:
         '-r',
         '--result-file',
         dest='result',
+        default='crawler_results.json',
         type=str,
         help='Either the output path to place the result file or a path to a '
         'previously incomplete result file',

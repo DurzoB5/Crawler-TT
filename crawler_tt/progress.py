@@ -1,5 +1,10 @@
+import json
+import logging
+import os
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
+
+LOGGER = logging.getLogger('crawler')
 
 
 class State(Enum):
@@ -21,10 +26,15 @@ class Result:
         self.error = error
         self.finding = finding
 
+    @property
+    def json(self) -> Dict[str, Any]:
+        return {'state': self.state.value, 'error': self.error, 'finding': self.finding}
+
 
 class BaseProgressHandler:
     def __init__(self, result: str):
-        raise NotImplementedError()
+        self.result = result
+        self.results: Dict[str, Any] = {}
 
     @property
     def urls(self) -> List[str]:
@@ -36,8 +46,16 @@ class BaseProgressHandler:
 
 class StandaloneProgressHandler(BaseProgressHandler):
     def __init__(self, result: str):
-        self.result_file = result
-        self.results = {}
+        super().__init__(result)
+
+        if os.path.exists(result):
+            LOGGER.info(f'Loading results from pre-existing results at {result}')
+            with open(result, 'r') as result_file:
+                data = json.load(result_file)
+
+                for url, results in data.items():
+                    results['state'] = State(results['state'])
+                    self.results[url] = Result(**results)
 
     @property
     def urls(self) -> List[str]:
@@ -45,6 +63,14 @@ class StandaloneProgressHandler(BaseProgressHandler):
 
     def store_result(self, url: str, result: Result) -> None:
         self.results[url] = result
+
+        with open(self.result, 'w') as result_file:
+            output = {}
+
+            for url, result in self.results.items():
+                output[url] = result.json
+
+            json.dump(output, result_file)
 
 
 class ServiceProgressHandler(BaseProgressHandler):

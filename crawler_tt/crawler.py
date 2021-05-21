@@ -128,6 +128,7 @@ class Crawler:
 
     def _test_forms_vulnerable(self, url: str, page: BeautifulSoup) -> None:
         for form in page.findAll('form'):
+            error_found = False
             form_id = form.attrs.get('id', '')
             LOGGER.debug('Checking form with ID: {form_id}')
             for payload in self.payloads:
@@ -154,8 +155,6 @@ class Crawler:
                         form_url, params=data, headers={'security': 'low'}
                     )
 
-                error_found = False
-
                 for error in SQL_ERRORS:
                     if error[0] in response.content.decode('utf-8').lower():
                         LOGGER.warning(
@@ -173,12 +172,16 @@ class Crawler:
                 if error_found:
                     # If an error has been found stop trying payloads
                     break
-                else:
-                    # If no error has been found mark the url as safe
-                    LOGGER.debug(f'{url} has no errors, marking as safe')
-                    self.progress.store_result(
-                        url, Result(State.SAFE, 'No injections found')
-                    )
+
+            if error_found:
+                # If an error has been found stop trying payloads
+                break
+            else:
+                # If no error has been found mark the url as safe
+                LOGGER.debug(f'{url} has no errors, marking as safe')
+                self.progress.store_result(
+                    url, Result(State.SAFE, 'No injections found')
+                )
         else:
             # If no forms are found then mark the url as safe
             LOGGER.debug(f'{url} has no forms, marking as safe')
@@ -269,8 +272,10 @@ class Crawler:
                     self.progress.store_result(url, Result(State.FAILURE, msg))
                     continue
 
-                # Find any forms on the page that we can try to inject
-                self._test_forms_vulnerable(url, page)
+                # Check if this URL has already been checked in a previous run
+                if url not in self.progress.urls:
+                    # Find any forms on the page that we can try to inject
+                    self._test_forms_vulnerable(url, page)
 
                 # Find any suitable links to other pages the crawler should test
                 for url in self._get_urls_from_page(page):
